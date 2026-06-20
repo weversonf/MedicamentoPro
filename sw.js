@@ -21,3 +21,11 @@ self.addEventListener('fetch', e => {
         caches.match(e.request).then(r => r || fetch(e.request))
     );
 });
+
+self.addEventListener('notificationclick', e => {
+    e.notification.close();
+    e.waitUntil(clients.matchAll({ type: 'window' }).then(cls => {
+        if (cls[0]) { cls[0].focus(); return; }
+        clients.openWindow('index.html');
+    }));
+});

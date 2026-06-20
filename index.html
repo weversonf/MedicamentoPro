@@ -840,6 +840,32 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js');
         }
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        const notifiedDoses = new Set();
+        function checkPendingDoses() {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            const now = new Date();
+            const nowStr = now.toISOString().slice(0, 16);
+            state.forEach(d => {
+                if (notifiedDoses.has(d.id)) return;
+                if (d.datetime !== nowStr) return;
+                if (d.meds.every(m => m.taken)) return;
+                const pending = d.meds.filter(m => !m.taken).map(m => m.name).join(', ');
+                navigator.serviceWorker.ready.then(r => {
+                    r.showNotification('Hora de tomar!', {
+                        body: pending,
+                        icon: 'icons/icon.svg',
+                        vibrate: [200, 100, 200],
+                        tag: 'dose-' + d.id
+                    });
+                });
+                notifiedDoses.add(d.id);
+            });
+        }
+        setInterval(checkPendingDoses, 30000);
+        setTimeout(checkPendingDoses, 5000);
     </script>
 </body>
 </html>
