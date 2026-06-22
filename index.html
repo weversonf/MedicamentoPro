@@ -535,12 +535,14 @@
         function toggleMed(doseId, medIndex) {
             const dose = state.find(d => d.id === doseId);
             if (dose && dose.meds[medIndex]) {
-                dose.meds[medIndex].taken = !dose.meds[medIndex].taken;
+                const med = dose.meds[medIndex];
+                med.taken = !med.taken;
+                med.takenAt = med.taken ? new Date().toISOString() : null;
                 saveState();
                 
                 const allTaken = dose.meds.every(m => m.taken);
                 if (allTaken) {
-                    setTimeout(() => render(), 400); // Dá tempo para ver a animação do botão verde
+                    setTimeout(() => render(), 400);
                 }
                 render();
             }
@@ -549,7 +551,7 @@
         function undoDose(id) {
             const dose = state.find(d => d.id === id);
             if (dose) {
-                dose.meds.forEach(m => m.taken = false);
+                dose.meds.forEach(m => { m.taken = false; m.takenAt = null; });
                 saveState();
                 render();
             }
@@ -606,7 +608,7 @@
                 dose.datetime = datetime;
                 dose.meds = namesArray.map(name => {
                     const existing = dose.meds.find(m => m.name.toLowerCase() === name.toLowerCase());
-                    return { name, taken: existing ? existing.taken : false, icon: existing ? existing.icon : 'pill' };
+                    return { name, taken: existing ? existing.taken : false, takenAt: existing ? existing.takenAt : null, icon: existing ? existing.icon : 'pill' };
                 });
             } else {
                 state.push({ id: Date.now(), datetime, meds: namesArray.map(name => ({ name, taken: false, icon: 'pill' })) });
@@ -779,7 +781,11 @@
                     ${itemsToShow.length > 1 ? `<div class="absolute left-[19px] top-3 bottom-3 w-0.5 ${lineColor} z-0"></div>` : ''}
                     ${itemsToShow.map((dose, idx) => {
                         const isLast = idx === itemsToShow.length - 1;
-                        const { day, time } = formatSmartDate(dose.datetime);
+                        const takenAt = isHistory ? Math.max(...dose.meds.filter(m => m.takenAt).map(m => new Date(m.takenAt).getTime()), 0) : 0;
+                        const takenDate = takenAt ? new Date(takenAt) : null;
+                        const takenTime = takenDate ? takenDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+                        const takenDay = takenDate ? takenDate.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '') : null;
+                        const sched = formatSmartDate(dose.datetime);
                         
                         const badges = dose.meds.map(m => {
                             const style = getMedStyle(m.name);
@@ -799,10 +805,11 @@
                                         <button onclick="openModal(${dose.id})" class="text-slate-400 hover:text-indigo-600 transition-colors" title="Editar">${icons.edit}</button>
                                         <button onclick="deleteDose(${dose.id})" class="text-slate-400 hover:text-rose-500 transition-colors" title="Excluir">${icons.trash}</button>
                                     </div>
-                                    <div class="flex items-baseline gap-2 mb-3">
-                                        <span class="font-black text-slate-800 text-xl">${time}</span>
-                                        <span class="text-xs font-semibold text-slate-500">${day}</span>
+                                    <div class="flex items-baseline gap-2 mb-1">
+                                        <span class="font-black text-slate-800 text-xl">${takenTime || sched.time}</span>
+                                        <span class="text-xs font-semibold ${takenTime ? 'text-emerald-600' : 'text-slate-500'}">${takenTime ? 'Realizado' : sched.day}</span>
                                     </div>
+                                    ${takenTime ? `<div class="text-[10px] text-slate-400 font-medium mb-2">Programado: ${sched.time} ${sched.day}</div>` : ''}
                                     <div class="flex flex-wrap gap-2 pr-12">
                                         ${badges}
                                     </div>
